@@ -1,10 +1,13 @@
 const puppeteer = require('puppeteer');
 const { v4: uuidv4 } = require('uuid');
+/*
+TODO:
+1. Log timestamp of sent email
+2. Delete Emails at END of Run OR Create a new test to delete them.
 
+*/
 async function generateRandomUUIDUnixTimestamp() {
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-
+    //Removed Browser Launch Line
     // Generate a random UUID
     const randomUUID = uuidv4();
     const randomUUID2 = uuidv4();
@@ -12,10 +15,30 @@ async function generateRandomUUIDUnixTimestamp() {
     // Get the current Unix timestamp
     const unixTimestamp = Math.floor(Date.now() / 1000);
     const unixTimestamp2 = Math.floor(Date.now() / 1000);
-
-    await browser.close();
-
+    //Removed Browser Close line
     return { randomUUID, randomUUID2, unixTimestamp, unixTimestamp2 };
+}
+
+async function retry(page, selector, timeout){
+    const max_attempts = 3;
+    let is_element = false;
+    let element;
+
+    for(let attempt = 1; attempt <= max_attempts; attempt++){
+        page.reload();
+        console.log(`Attempt number: ${attempt}`);
+        try{
+            element = await page.waitForSelector(selector, {timeout: timeout});
+        }
+        catch(e){
+            console.warn(`element ${selector} not found.`);
+        }
+        if(element){
+            is_element = true;
+            break;
+        }
+    }
+
 }
 
 async function yahooTest() {
@@ -49,12 +72,14 @@ async function yahooTest() {
     await page.waitForSelector('a[data-test-id="compose-button"]');
     await page.click('a[data-test-id="compose-button"]');
     await page.waitForSelector('button[data-test-id="compose-send-button"]');
+    //Race condition without this wait.
     await page.waitForTimeout(3000);
 
     //Clicking on the 'To' field and filling out the same email address as the login
     await page.waitForSelector('input[aria-owns="react-typehead-list-to"]');
     await page.click('input[aria-owns="react-typehead-list-to"]');
     await page.type('input[aria-owns="react-typehead-list-to"]','jeremiah.auctane@yahoo.com');
+    //TBD reason why this is here
     await page.keyboard.press('Enter');
 
     //Clicking on subject and filling out the test subject
@@ -66,6 +91,7 @@ async function yahooTest() {
     //Clicking into the body of the email and filling out the body of the email
     await page.waitForTimeout(1000);
     await page.click('div[data-test-id="rte"]');
+    //TBD - Add reason for second Timestamp.
     const bodyEmail = `This is a test email at ${unixTimestamp2}, for the purposes of checking Yahoo ability to send and receive ${randomUUID2}`;
     await page.type('div[data-test-id="rte"]', bodyEmail);
 
@@ -76,10 +102,13 @@ async function yahooTest() {
     // Navigate to the inbox and expect to see the new email with matching UUID and timestamp subject
     //await page.click('a[data-test-folder-name="inbox"]');
     await page.reload();
+    //TODO - Swap these waits for implicit wait for selector after reload. OR reason unable to.
     await page.waitForTimeout(1000);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(1000);
-    await page.waitForSelector(`span[title="${subject}"]`);
+    //TODO Figure out good default timer
+    await retry(page, `span[title="${subject}"]`, 45000);
+
 
     // Click on the email
     await page.click(`span[title="${subject}"]`);

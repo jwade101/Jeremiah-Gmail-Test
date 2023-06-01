@@ -2,8 +2,9 @@ const puppeteer = require('puppeteer');
 const { v4: uuidv4 } = require('uuid');
 /*
 TODO:
-1. Log timestamp of sent email
-2. Delete Emails at END of Run OR Create a new test to delete them.
+1. Setup Branch for each work item 
+2. Log timestamp of sent email
+3. Delete Emails at END of Run OR Create a new test to delete them.
 
 */
 async function generateRandomUUIDUnixTimestamp() {
